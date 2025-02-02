@@ -1,50 +1,94 @@
 const FAQ = require("../models/faqModel");
 const redisClient = require("../config/redis");
 const translateText = require("../services/translateService");
+const { getTranslations } = require("../services/translateService");
+
 
 // Create FAQ
-const createFAQ = async (req, res) => {
+const getAllFAQs = async (req, res, next) => {
+  try {
+    const faqs = await FAQ.find();
+    res.status(200).json({ faqs });
+  } catch (err) {
+    next(err); // pass errors to the error handler middleware
+  }
+};
+
+
+//Create a new FAQ (with translation)
+async function createFAQ(req, res) {
   try {
     const { question, answer } = req.body;
 
-    // Translate FAQ into multiple languages
-    const languages = ["hi", "es", "fr"];
-    const translations = {};
-    for (const lang of languages) {
-      translations[lang] = await translateText(question, lang);
-    }
+    // Get translations for the question and answer
+    const translations = await getTranslations(question, answer);
 
-    const newFAQ = new FAQ({ question, answer, translations });
+    // Create the FAQ object
+    const newFAQ = new FAQ({
+      question,
+      answer,
+      translations,
+    });
+
+    // Save the FAQ to the database
     await newFAQ.save();
 
-    res.status(201).json(newFAQ);
+    // Send the response
+    res.status(201).json({
+      message: "FAQ created successfully",
+      faq: newFAQ,
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error creating FAQ:", error);
+    res.status(500).json({ message: "Error creating FAQ", error });
   }
-};
+}
 
-//FAQs language filter
-const getFAQs = async (req, res) => {
+// Update FAQ
+const updateFAQ = async (req, res) => {
   try {
-    const lang = req.query.lang || "en";
+    const { id } = req.params;
+    const { question, answer, languages = ["en"] } = req.body;
 
-    // Check Redis cache
-    const cachedFAQs = await redisClient.get(`faqs:${lang}`);
-    if (cachedFAQs) return res.json(JSON.parse(cachedFAQs));
+    const faq = await FAQ.findById(id);
+    if (!faq) {
+      return res.status(404).json({ message: "FAQ not found" });
+    }
 
-    const faqs = await FAQ.find();
-    const translatedFAQs = faqs.map((faq) => ({
-      question: faq.translations[lang] || faq.question,
-      answer: faq.answer,
-    }));
+    // Update the FAQ in the primary language (English)
+    faq.question = question || faq.question;
+    faq.answer = answer || faq.answer;
 
-    // Cache response
-    await redisClient.set(`faqs:${lang}`, JSON.stringify(translatedFAQs), "EX", 3600);
+    // Update translations for the other languages
+    const translations = await getTranslations(question, answer); // Use the translation function here
+    faq.translations = translations;
 
-    res.json(translatedFAQs);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+    await faq.save();
+    res.status(200).json({ message: "FAQ updated successfully", faq });
+  } catch (err) {
+    console.error("Error updating FAQ:", err);
+    res.status(500).json({ message: "Error updating FAQ", err });
   }
 };
 
-module.exports = { createFAQ, getFAQs };
+
+// Delete FAQ
+const deleteFAQ = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const faq = await FAQ.findByIdAndDelete(id);
+    if (!faq) {
+      return res.status(404).json({ message: "FAQ not found" });
+    }
+    res.status(200).json({ message: "FAQ deleted successfully" });
+  } catch (err) {
+    next(err); // pass errors to the error handler middleware
+  }
+};
+
+module.exports = {
+  getAllFAQs,
+  createFAQ,
+  updateFAQ,
+  deleteFAQ
+};

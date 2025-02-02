@@ -1,14 +1,58 @@
-const { Translate } = require("@google-cloud/translate").v2;
-const translate = new Translate();
+const { TranslationServiceClient } = require('@google-cloud/translate');
+const translateClient = new TranslationServiceClient();
 
-const translateText = async (text, targetLang) => {
+// Define the supported languages
+const supportedLanguages = ['en', 'es', 'fr']; 
+
+/**
+ * Translates text to the supported languages.
+ * @param {string} text 
+ * @param {string} targetLanguage 
+ * @returns {Promise<string>} 
+ */
+async function translateText(text, targetLanguage) {
   try {
-    const [translation] = await translate.translate(text, targetLang);
-    return translation;
+    // Configure the translation request
+    const [response] = await translateClient.translateText({
+      parent: `projects/${process.env.GOOGLE_PROJECT_ID}/locations/global`,
+      contents: [text],
+      targetLanguageCode: targetLanguage,
+    });
+    return response.translations[0].translatedText;
   } catch (error) {
-    console.error(`Translation Error (${targetLang}):`, error);
-    return text; // return original text
+    console.error("Error translating text:", error);
+    throw new Error('Translation failed');
   }
-};
+}
 
-module.exports = translateText;
+/**
+ * Translates both the question and answer to multiple languages.
+ * 
+ * @param {string} question 
+ * @param {string} answer 
+ * @returns {Promise<Object>}
+ */
+async function getTranslations(question, answer) {
+  try {
+    const translations = {};
+
+    for (const lang of supportedLanguages) {
+      // Translate the question and answer to each supported language
+      const translatedQuestion = await translateText(question, lang);
+      const translatedAnswer = await translateText(answer, lang);
+
+      // Add the translations to the translations object
+      translations[lang] = {
+        question: translatedQuestion,
+        answer: translatedAnswer,
+      };
+    }
+
+    return translations;
+  } catch (error) {
+    console.error("Error in translation process:", error);
+    throw new Error('Translation process failed');
+  }
+}
+
+module.exports = { getTranslations };
