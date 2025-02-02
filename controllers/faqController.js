@@ -7,7 +7,7 @@ const createFAQ = async (req, res) => {
   try {
     const { question, answer } = req.body;
 
-    // Translate the FAQ into multiple languages
+    // Translate FAQ into multiple languages
     const languages = ["hi", "es", "fr"];
     const translations = {};
     for (const lang of languages) {
@@ -23,7 +23,7 @@ const createFAQ = async (req, res) => {
   }
 };
 
-// Get FAQs with language filter
+//FAQs language filter
 const getFAQs = async (req, res) => {
   try {
     const lang = req.query.lang || "en";
@@ -38,7 +38,7 @@ const getFAQs = async (req, res) => {
       answer: faq.answer,
     }));
 
-    // Cache the response
+    // Cache response
     await redisClient.set(`faqs:${lang}`, JSON.stringify(translatedFAQs), "EX", 3600);
 
     res.json(translatedFAQs);

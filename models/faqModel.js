@@ -6,7 +6,7 @@ const faqSchema = new mongoose.Schema(
     answer: { type: String, required: true },
     translations: {
       type: Map,
-      of: String, // Stores translations as { "hi": "हिंदी में प्रश्न", "fr": "Question en français" }
+      of: String, 
     },
   },
   { timestamps: true }

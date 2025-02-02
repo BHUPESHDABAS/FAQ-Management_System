@@ -19,7 +19,7 @@ app.use("/api/faqs", faqRoutes);
 // Error Handling Middleware
 app.use(require("./middlewares/errorHandler"));
 
-// Start Server
+
 app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
   await redisClient.connect(); // Connect Redis
